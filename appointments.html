@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Appointments — Redline Health</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body data-page="appointments">
+
+  <div class="app-shell">
+    <div id="sidebar-root"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <span class="eyebrow">Scheduling</span>
+          <h1>Appointments</h1>
+        </div>
+        <div class="topbar-right">
+          <div class="id-chip" id="topbar-id-chip"></div>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="page-head">
+          <p>Manage the schedule across departments. Data here reads and writes directly to your <code class="mono">appointments</code> table in Supabase.</p>
+        </div>
+
+        <div class="card panel">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow" id="appt-today-label">&nbsp;</span>
+              <h3>Schedule</h3>
+            </div>
+            <div class="toolbar">
+              <div class="search-input">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <input type="text" id="appt-search" placeholder="Search patient or doctor" />
+              </div>
+              <select class="select-input" id="appt-filter">
+                <option value="all">All statuses</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="pending">Pending</option>
+                <option value="rescheduled">Rescheduled</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+              <button class="btn btn-primary btn-sm" id="toggle-new-appt" type="button">+ New appointment</button>
+            </div>
+          </div>
+
+          <!-- Collapsible add/edit appointment form (shared for both flows) -->
+          <div class="collapse-panel" id="appt-panel">
+            <form id="appt-form" style="padding: 4px 0 22px;">
+              <h4 id="appt-panel-title" style="margin: 0 0 12px;">New appointment</h4>
+              <div class="settings-grid">
+                <div class="field">
+                  <label for="ap-patient">Patient *</label>
+                  <div class="input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+                    <input type="text" id="ap-patient" placeholder="Marisol Reyes" required />
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="ap-reason">Reason / note</label>
+                  <div class="input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+                    <input type="text" id="ap-reason" placeholder="Prenatal check-up" />
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="ap-provider">Provider</label>
+                  <div class="input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+                    <input type="text" id="ap-provider" placeholder="Dr. Fatima Cruz" />
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="ap-department">Department</label>
+                  <div class="input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21V8l9-5 9 5v13M9 21v-6h6v6"/></svg>
+                    <input type="text" id="ap-department" placeholder="OB-GYN" />
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="ap-date">Date *</label>
+                  <div class="input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+                    <input type="date" id="ap-date" required />
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="ap-time">Time *</label>
+                  <div class="input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                    <input type="time" id="ap-time" required />
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="ap-status">Status</label>
+                  <select class="select-input" id="ap-status" style="width:100%;">
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="rescheduled">Rescheduled</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              </div>
+
+              <div id="appt-msg" class="form-msg"></div>
+
+              <div class="login-submit" style="display:flex; gap:10px; margin-top:18px;">
+                <button type="submit" class="btn btn-primary" id="appt-submit">
+                  <span class="spinner" id="appt-spinner"></span>
+                  <span id="appt-submit-label">Save appointment</span>
+                </button>
+                <button type="button" class="btn btn-ghost" id="appt-cancel">Cancel</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="table-wrap">
+            <table id="appt-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Patient</th>
+                  <th>Provider</th>
+                  <th>Department</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="appt-tbody">
+                <tr><td colspan="6"><div class="empty-state"><span class="mono" style="color:var(--ink-soft);">Loading appointments&hellip;</span></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/appointments.js"></script>
+</body>
+</html>

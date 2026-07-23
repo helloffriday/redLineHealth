@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Redline Health — Staff Sign In</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="login-shell">
+    <!-- Hero / brand panel -->
+    <section class="login-hero">
+      <div class="brand-mark">
+        <div class="mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M3 12h18"/></svg>
+        </div>
+        <div>
+          <div class="brand-name">Redline Health</div>
+          <div class="brand-sub">Staff Portal</div>
+        </div>
+      </div>
+
+      <div class="login-hero-body">
+        <h1>Care coordination, on one steady line.</h1>
+        <p class="lede">Sign in with your Employee ID to reach the dashboard, inventory, appointments, maternal &amp; child care records, and reports — all in one place.</p>
+
+        <div class="hero-pulse-wrap">
+          <svg class="pulse-line" viewBox="0 0 420 80" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 40 H130 L150 40 L165 12 L185 66 L200 40 L220 40 L235 20 L250 40 H420" />
+            <circle class="pulse-dot" cx="415" cy="40" r="5"/>
+          </svg>
+        </div>
+
+        <div class="hero-stats">
+          <div><strong>24/7</strong><span>Ward coverage</span></div>
+          <div><strong>6</strong><span>Care modules</span></div>
+          <div><strong>1</strong><span>Unified sign-in</span></div>
+        </div>
+      </div>
+
+      <div class="hero-foot">Authorized personnel only. All activity is logged.</div>
+    </section>
+
+    <!-- Form panel -->
+    <section class="login-panel">
+      <div class="login-card">
+        <span class="eyebrow">Staff Sign In</span>
+        <h2>Welcome back</h2>
+        <p class="lede">Enter your Employee ID and password to continue.</p>
+
+        <form id="login-form" novalidate>
+          <div class="field">
+            <label for="employee-id">Employee ID</label>
+            <div class="input-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="12" r="2"/><path d="M15 10h3M15 14h3"/></svg>
+              <input type="text" id="employee-id" name="employee-id" placeholder="e.g. EMP-00214" autocomplete="username" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="password">Password</label>
+            <div class="input-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+              <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" style="padding-right:42px;" />
+              <button type="button" class="toggle-visibility" id="toggle-password" aria-label="Show password">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div id="form-msg" class="form-msg"></div>
+
+          <div class="login-submit">
+            <button type="submit" class="btn btn-primary btn-block" id="login-submit">
+              <span class="spinner" id="login-spinner"></span>
+              <span id="login-submit-label">Sign in</span>
+            </button>
+          </div>
+        </form>
+
+        <div class="login-foot-note">
+          Trouble signing in? Contact your facility administrator to verify your Employee ID or reset your password.
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/login.js"></script>
+</body>
+</html>

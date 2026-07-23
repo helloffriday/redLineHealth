@@ -1,0 +1,314 @@
+/* =========================================================
+   Reports — reads/writes public.reports (the "recently
+   generated" log). The three category cards pull live data
+   from the relevant table, build a plain-text summary, and
+   store it as a data: URI in file_url — so the row is
+   "ready" and downloadable immediately, no server-side job
+   needed. (A real PDF/XLSX would still need an Edge Function
+   or similar; txt works entirely client-side.)
+   ========================================================= */
+
+let allReports = [];
+let editingId = null;
+let currentProfileLabel = "Staff";
+
+const STATUS_PILL = { ready: "ok", processing: "warn", failed: "danger" };
+
+function fmtDate(isoStr) {
+  if (!isoStr) return "\u2014";
+  return new Date(isoStr).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+function renderReports(list) {
+  const tbody = document.getElementById("reports-tbody");
+
+  if (!list.length) {
+    tbody.innerHTML = `
+      <tr><td colspan="6">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+          <h4>No reports yet</h4>
+          <p>Generate one from the cards above.</p>
+        </div>
+      </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map((r) => {
+    const status = STATUS_PILL[r.status] || "neutral";
+    const downloadDisabled = r.status !== "ready" || !r.file_url;
+    return `
+      <tr data-id="${r.id}">
+        <td class="cell-primary">${r.report_name}</td>
+        <td>${r.generated_by || "\u2014"}</td>
+        <td class="mono">${fmtDate(r.generated_at)}</td>
+        <td class="mono">${r.format}</td>
+        <td><span class="pill ${status}">${r.status[0].toUpperCase() + r.status.slice(1)}</span></td>
+        <td style="display:flex; gap:6px;">
+          ${downloadDisabled
+            ? `<button class="btn-icon" disabled style="opacity:.4;cursor:not-allowed;" title="Not ready yet">
+                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15V3M6 11l6 6 6-6"/><path d="M4 21h16"/></svg>
+               </button>`
+            : `<a class="btn-icon" href="${r.file_url}" download="${(r.report_name || "report").replace(/[^a-z0-9\-_]+/gi, "_")}.${(r.format || "txt").toLowerCase()}" title="Download">
+                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15V3M6 11l6 6 6-6"/><path d="M4 21h16"/></svg>
+               </a>`}
+          <button class="btn-icon report-edit-btn" data-id="${r.id}" title="Edit entry">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+          </button>
+          <button class="btn-icon report-delete-btn" data-id="${r.id}" title="Delete entry">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6h16z"/></svg>
+          </button>
+        </td>
+      </tr>`;
+  }).join("");
+
+  tbody.querySelectorAll(".report-edit-btn").forEach((btn) =>
+    btn.addEventListener("click", () => openEditPanel(btn.dataset.id))
+  );
+  tbody.querySelectorAll(".report-delete-btn").forEach((btn) =>
+    btn.addEventListener("click", () => deleteReport(btn.dataset.id))
+  );
+}
+
+async function loadReports() {
+  const { data, error } = await supabaseClient
+    .from("reports")
+    .select("*")
+    .order("generated_at", { ascending: false });
+
+  if (error) {
+    console.error(error);
+    document.getElementById("reports-tbody").innerHTML = `
+      <tr><td colspan="6">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+          <h4>Couldn't load reports</h4>
+          <p>${error.message}</p>
+        </div>
+      </td></tr>`;
+    return;
+  }
+
+  allReports = data || [];
+  renderReports(allReports);
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  const profile = await requireAuthAndLoadProfile();
+  currentProfileLabel = profile?.full_name || profile?.email || "Staff";
+  await loadReports();
+});
+
+/* ---- quick-generate cards ----
+   Pulls live rows from the relevant table and builds a
+   plain-text summary, encoded as a data: URI so the log
+   entry is immediately downloadable — no server job needed. */
+
+function textToDataUri(text) {
+  const b64 = btoa(unescape(encodeURIComponent(text)));
+  return `data:text/plain;charset=utf-8;base64,${b64}`;
+}
+
+async function buildInventoryReport() {
+  const { data, error } = await supabaseClient.from("inventory_items").select("*").order("name");
+  if (error) throw error;
+  const lines = [
+    `INVENTORY USAGE REPORT`,
+    `Generated: ${new Date().toLocaleString()}`,
+    `Generated by: ${currentProfileLabel}`,
+    "",
+    ...(data || []).map((i) =>
+      `${i.name} (${i.category}) \u2014 SKU ${i.sku || "n/a"} \u2014 Qty: ${i.quantity} ${i.quantity_unit || ""} \u2014 Reorder point: ${i.reorder_point}${i.expires_at ? ` \u2014 Expires: ${i.expires_at}` : ""}`
+    ),
+  ];
+  return lines.join("\n");
+}
+
+async function buildAppointmentsReport() {
+  const { data, error } = await supabaseClient.from("appointments").select("*").order("appt_datetime");
+  if (error) throw error;
+  const lines = [
+    `APPOINTMENT SUMMARY REPORT`,
+    `Generated: ${new Date().toLocaleString()}`,
+    `Generated by: ${currentProfileLabel}`,
+    "",
+    ...(data || []).map((a) =>
+      `${new Date(a.appt_datetime).toLocaleString()} \u2014 ${a.patient_name} with ${a.provider || "unassigned"} (${a.department || "n/a"}) \u2014 ${a.status}`
+    ),
+  ];
+  return lines.join("\n");
+}
+
+async function buildMaternalReport() {
+  const [{ data: cases, error: casesErr }, { data: coverage, error: covErr }] = await Promise.all([
+    supabaseClient.from("maternal_child_cases").select("*").order("next_visit"),
+    supabaseClient.from("immunization_coverage").select("*").order("vaccine"),
+  ]);
+  if (casesErr) throw casesErr;
+  if (covErr) throw covErr;
+  const lines = [
+    `MATERNAL & CHILD OUTCOMES REPORT`,
+    `Generated: ${new Date().toLocaleString()}`,
+    `Generated by: ${currentProfileLabel}`,
+    "",
+    "-- Active cases --",
+    ...(cases || []).map((c) =>
+      `${c.patient_name} (${c.case_code || "n/a"}) \u2014 ${c.stage} \u2014 ${c.stage_detail || "n/a"} \u2014 Next visit: ${c.next_visit || "n/a"} \u2014 Risk: ${c.risk}`
+    ),
+    "",
+    "-- Immunization coverage --",
+    ...(coverage || []).map((v) => `${v.vaccine}: ${v.percent}%`),
+  ];
+  return lines.join("\n");
+}
+
+const REPORT_BUILDERS = {
+  inventory: buildInventoryReport,
+  appointments: buildAppointmentsReport,
+  maternal: buildMaternalReport,
+};
+
+document.querySelectorAll(".generate-report-btn").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const category = btn.dataset.category;
+    const name = btn.dataset.reportName;
+
+    btn.disabled = true;
+    try {
+      const content = await REPORT_BUILDERS[category]();
+      const fileUrl = textToDataUri(content);
+
+      const { error } = await supabaseClient.from("reports").insert({
+        report_name: name,
+        category,
+        generated_by: currentProfileLabel,
+        format: "TXT",
+        status: "ready",
+        file_url: fileUrl,
+      });
+      if (error) throw error;
+
+      showToast("Report ready \u2014 download it from the log below", "success");
+      await loadReports();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+});
+
+/* ---- add / edit log entry panel ---- */
+const panel = document.getElementById("report-panel");
+const toggleBtn = document.getElementById("toggle-new-report");
+const cancelBtn = document.getElementById("report-cancel");
+const form = document.getElementById("report-form");
+const msgBox = document.getElementById("report-msg");
+const submitBtn = document.getElementById("report-submit");
+const spinner = document.getElementById("report-spinner");
+const submitLabel = document.getElementById("report-submit-label");
+const panelTitle = document.getElementById("report-panel-title");
+
+function fillForm(r) {
+  document.getElementById("rp-name").value = r?.report_name || "";
+  document.getElementById("rp-category").value = r?.category || "";
+  document.getElementById("rp-format").value = r?.format || "PDF";
+  document.getElementById("rp-status").value = r?.status || "processing";
+  document.getElementById("rp-file-url").value = r?.file_url || "";
+}
+
+function openAddPanel() {
+  editingId = null;
+  panelTitle.textContent = "New log entry";
+  submitLabel.textContent = "Save entry";
+  fillForm(null);
+  panel.classList.add("open");
+  toggleBtn.textContent = "Close";
+}
+
+function openEditPanel(id) {
+  const r = allReports.find((x) => String(x.id) === String(id));
+  if (!r) return;
+  editingId = id;
+  panelTitle.textContent = "Edit log entry";
+  submitLabel.textContent = "Save changes";
+  fillForm(r);
+  panel.classList.add("open");
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  toggleBtn.textContent = "Close";
+}
+
+function closePanel() {
+  panel.classList.remove("open");
+  toggleBtn.textContent = "+ New log entry";
+  form.reset();
+  msgBox.className = "form-msg";
+  editingId = null;
+}
+
+toggleBtn.addEventListener("click", () => {
+  panel.classList.contains("open") ? closePanel() : openAddPanel();
+});
+cancelBtn.addEventListener("click", closePanel);
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  msgBox.className = "form-msg";
+
+  const name = document.getElementById("rp-name").value.trim();
+  const category = document.getElementById("rp-category").value;
+  if (!name || !category) {
+    msgBox.className = "form-msg show error";
+    msgBox.textContent = "Report name and category are required.";
+    return;
+  }
+
+  const payload = {
+    report_name: name,
+    category,
+    format: document.getElementById("rp-format").value.trim() || "PDF",
+    status: document.getElementById("rp-status").value || "processing",
+    file_url: document.getElementById("rp-file-url").value.trim() || null,
+  };
+  if (!editingId) payload.generated_by = currentProfileLabel;
+
+  submitBtn.disabled = true;
+  spinner.classList.add("show");
+  submitLabel.textContent = "Saving\u2026";
+
+  let error;
+  if (editingId) {
+    ({ error } = await supabaseClient.from("reports").update(payload).eq("id", editingId));
+  } else {
+    ({ error } = await supabaseClient.from("reports").insert(payload));
+  }
+
+  submitBtn.disabled = false;
+  spinner.classList.remove("show");
+  submitLabel.textContent = editingId ? "Save changes" : "Save entry";
+
+  if (error) {
+    msgBox.className = "form-msg show error";
+    msgBox.textContent = error.message;
+    return;
+  }
+
+  showToast(editingId ? "Entry updated" : "Entry added", "success");
+  closePanel();
+  await loadReports();
+});
+
+async function deleteReport(id) {
+  const r = allReports.find((x) => String(x.id) === String(id));
+  if (!r) return;
+  const confirmed = window.confirm(`Delete "${r.report_name}" from the log? This cannot be undone.`);
+  if (!confirmed) return;
+
+  const { error } = await supabaseClient.from("reports").delete().eq("id", id);
+  if (error) {
+    showToast(error.message, "error");
+    return;
+  }
+  showToast("Entry deleted", "success");
+  await loadReports();
+}

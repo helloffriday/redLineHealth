@@ -1,13 +1,11 @@
-/* =========================================================
-   Login logic — Employee ID + password
-   ---------------------------------------------------------
-   Supabase Auth signs in with email/password. Staff sign in
-   with their Employee ID instead, so we first resolve the
-   Employee ID to its linked email via a security-definer
-   RPC (get_email_by_employee_id — see the SQL at the bottom
-   of this project), then call signInWithPassword with that
-   email.
-   ========================================================= */
+const turnstileToken = document.querySelector(
+  '[name="cf-turnstile-response"]'
+)?.value;
+
+if (!turnstileToken) {
+    showMessage("Please complete the verification.", "error");
+    return;
+}
 
 const form = document.getElementById("login-form");
 const empIdInput = document.getElementById("employee-id");

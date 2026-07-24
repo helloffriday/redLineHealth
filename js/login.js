@@ -1,12 +1,3 @@
-const turnstileToken = document.querySelector(
-  '[name="cf-turnstile-response"]'
-)?.value;
-
-if (!turnstileToken) {
-    showMessage("Please complete the verification.", "error");
-    return;
-}
-
 const form = document.getElementById("login-form");
 const empIdInput = document.getElementById("employee-id");
 const passwordInput = document.getElementById("password");
@@ -35,6 +26,7 @@ function hideMessage() {
 const ICONS_INLINE = {
   error: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>`,
   info: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg>`,
+  success: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6L9 17l-5-5"/></svg>`,
 };
 
 toggleBtn.addEventListener("click", () => {
@@ -52,6 +44,16 @@ toggleBtn.addEventListener("click", () => {
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   hideMessage();
+
+  // Check Turnstile token
+  const turnstileToken = document.querySelector(
+    '[name="cf-turnstile-response"]'
+  )?.value;
+
+  if (!turnstileToken) {
+    showMessage("Please complete the verification.", "error");
+    return;
+  }
 
   const employeeId = empIdInput.value.trim();
   const password = passwordInput.value;

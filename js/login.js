@@ -45,16 +45,6 @@ form.addEventListener("submit", async (e) => {
   e.preventDefault();
   hideMessage();
 
-  // Check Turnstile token
-  const turnstileToken = document.querySelector(
-    '[name="cf-turnstile-response"]'
-  )?.value;
-
-  if (!turnstileToken) {
-    showMessage("Please complete the verification.", "error");
-    return;
-  }
-
   const employeeId = empIdInput.value.trim();
   const password = passwordInput.value;
 
@@ -71,7 +61,10 @@ form.addEventListener("submit", async (e) => {
       { emp_id: employeeId }
     );
 
+    console.log("RPC Response:", { email, lookupError, employeeId });
+
     if (lookupError || !email) {
+      console.log("RPC Error or no email found");
       showMessage("Invalid Employee ID or password.", "error");
       setLoading(false);
       return;

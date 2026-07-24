@@ -77,7 +77,6 @@ form.addEventListener("submit", async (e) => {
       return;
     }
 
-    // 2. Sign in with the resolved email + entered password.
     const { error: authError } = await supabaseClient.auth.signInWithPassword({
       email,
       password,

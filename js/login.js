@@ -45,6 +45,14 @@ form.addEventListener("submit", async (e) => {
   e.preventDefault();
   hideMessage();
 
+  // Get Turnstile token from the widget
+  const turnstileToken = window.turnstile?.getResponse();
+
+  if (!turnstileToken) {
+    showMessage("Please complete the CAPTCHA verification.", "error");
+    return;
+  }
+
   const employeeId = empIdInput.value.trim();
   const password = passwordInput.value;
 
